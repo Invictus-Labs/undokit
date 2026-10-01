@@ -5,7 +5,7 @@ All builders, reviewers and QA run Sonnet 5.5 at high effort. Roles are separate
 | Role | Territory (exclusive write) |
 | --- | --- |
 | Coordinator | `package.json`, `package-lock.json`, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts`, `playwright.config.ts`, `LICENSE`, `AGENTS.md`, `CLAUDE.md`, `lessons.md`, `.gitignore`, `docs/TEAM.md`, `docs/DOD.md`, `docs/PRD.md`, git remote/push/PR/merge, dependency changes |
-| Backend (domain/core) | `src/domain/**`, `src/services/**`, `src/api/**`, `src/workers/**`, `src/connectors/**`, `src/db/**`, `src/evidence/**`, `schemas/**`, `migrations/**`, `docs/PROVIDER-DECISION.md`, `docs/ARCHITECTURE.md` |
+| Backend (domain/core) | `src/index.ts`, `src/server.ts`, `src/config.ts`, `src/domain/**`, `src/services/**`, `src/api/**`, `src/workers/**`, `src/connectors/**`, `src/db/**`, `src/evidence/**`, `schemas/**`, `migrations/**`, `docs/PROVIDER-DECISION.md`, `docs/ARCHITECTURE.md` |
 | CLI / UI / integration | `src/cli/**`, `src/web/**`, `src/report/**`, `src/adapters/**`, `templates/**` |
 | QA / packaging (independent) | `tests/**`, `fixtures/**`, `scripts/**`, `README.md`, `Dockerfile`, `compose.yaml`, `docs/qa/**`, `docs/RUNBOOK.md`, `docs/HUMAN-DRILL.md`, `docs/OPERATIONS.md`, `docs/DEPENDENCY-LICENSES.md` |
 

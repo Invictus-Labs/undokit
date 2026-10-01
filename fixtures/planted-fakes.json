@@ -1,0 +1,20 @@
+{
+  "fixture_version": "1.0.0",
+  "description": "Planted FAKE secrets used only to prove redaction. None of these values is a real credential and none grants access to anything. 'registry' secrets are exact values the product knows (connector credentials, session tokens, key material) and must scrub even though they carry no recognisable shape. 'pattern' secrets appear in free text in common credential shapes and must be caught by shape.",
+  "planted": [
+    { "label": "connector api key", "kind": "registry", "value": "FAKE-UNDOKIT-APIKEY-9a8b7c6d5e4f30211203f4e5d6c7b8a9" },
+    { "label": "connector password", "kind": "registry", "value": "FAKE-UNDOKIT-PASSWORD-q7w8e9r0t1y2u3i4" },
+    { "label": "session cookie value", "kind": "registry", "value": "FAKE-UNDOKIT-SESSION-5c4d3e2f1a0b9c8d7e6f" },
+    { "label": "encryption key material", "kind": "registry", "value": "FAKE-UNDOKIT-KEYMAT-00112233445566778899aabbccddeeff" },
+    { "label": "bearer token in a header", "kind": "pattern", "value": "FAKE-UNDOKIT-TOKEN-0f1e2d3c4b5a69788796a5b4c3d2e1f0" },
+    { "label": "token pasted into a notes field", "kind": "pattern", "value": "token-FAKEUNDOKIT0123456789abcdef" }
+  ],
+  "needles": [
+    "FAKE-UNDOKIT-APIKEY-9a8b7c6d5e4f30211203f4e5d6c7b8a9",
+    "FAKE-UNDOKIT-PASSWORD-q7w8e9r0t1y2u3i4",
+    "FAKE-UNDOKIT-SESSION-5c4d3e2f1a0b9c8d7e6f",
+    "FAKE-UNDOKIT-KEYMAT-00112233445566778899aabbccddeeff",
+    "FAKE-UNDOKIT-TOKEN-0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+    "token-FAKEUNDOKIT0123456789abcdef"
+  ]
+}

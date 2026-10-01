@@ -1,0 +1,2154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://undokit.local/schemas/operation.json",
+  "title": "UndoKit operation API and document schemas",
+  "description": "schema_version 1. Generated from src/domain/types.ts; do not edit by hand.",
+  "schema_version": 1,
+  "$defs": {
+    "CreateOperationRequest": {
+      "type": "object",
+      "properties": {
+        "connector_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "record_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "patch": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "expected_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "connector_id",
+        "record_ref",
+        "patch",
+        "expected_version"
+      ],
+      "additionalProperties": false
+    },
+    "PlanResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "state": {
+          "type": "string",
+          "const": "planned"
+        },
+        "plan_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "plan_hash"
+      ],
+      "additionalProperties": false
+    },
+    "ApproveRequest": {
+      "type": "object",
+      "properties": {
+        "plan_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "expected_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "plan_hash",
+        "expected_version"
+      ],
+      "additionalProperties": false
+    },
+    "ApproveResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "state": {
+          "type": "string",
+          "const": "approved"
+        },
+        "approval_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "plan_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        },
+        "job_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "approval_id",
+        "plan_hash",
+        "expires_at",
+        "job_id"
+      ],
+      "additionalProperties": false
+    },
+    "CompensationPlanResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "approved",
+            "compensating",
+            "compensated",
+            "conflict",
+            "failed",
+            "unknown"
+          ]
+        },
+        "plan_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALUE_CHANGED",
+                  "VERSION_CHANGED",
+                  "RECORD_MISSING"
+                ]
+              },
+              "expected": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "actual": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "code",
+              "expected",
+              "actual"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "expected_current": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "restore_to": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "redacted": {
+                "type": "boolean"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "restored",
+                  "not_restored",
+                  "changed_other",
+                  "mismatch"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "expected_current",
+              "restore_to",
+              "redacted",
+              "outcome"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        }
+      },
+      "required": [
+        "id",
+        "operation_id",
+        "state",
+        "plan_hash",
+        "conflicts",
+        "fields",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "CompensateRequest": {
+      "type": "object",
+      "properties": {
+        "plan_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "plan_hash"
+      ],
+      "additionalProperties": false
+    },
+    "CompensateResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "compensation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "state": {
+          "type": "string",
+          "const": "approved"
+        },
+        "approval_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "job_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        }
+      },
+      "required": [
+        "id",
+        "compensation_id",
+        "state",
+        "approval_id",
+        "job_id"
+      ],
+      "additionalProperties": false
+    },
+    "ReconcileResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "job_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "approved",
+            "applying",
+            "applied",
+            "failed",
+            "unknown",
+            "conflict"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "job_id",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "ResolveRequest": {
+      "type": "object",
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "not_applied",
+            "abandoned"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "expected_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "outcome",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "ResolveResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "target": {
+          "type": "string",
+          "enum": [
+            "operation",
+            "compensation"
+          ]
+        },
+        "compensation_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "type": "string",
+          "const": "failed"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "not_applied",
+            "abandoned"
+          ]
+        },
+        "failure_code": {
+          "type": "string",
+          "const": "OPERATOR_RESOLVED"
+        },
+        "resolved_by": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        }
+      },
+      "required": [
+        "id",
+        "target",
+        "compensation_id",
+        "state",
+        "outcome",
+        "failure_code",
+        "resolved_by",
+        "attempt_id"
+      ],
+      "additionalProperties": false
+    },
+    "OperationView": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "number",
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "workspace_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "connector_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "connector": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "name": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "simulator",
+                "couchdb"
+              ]
+            },
+            "live": {
+              "type": "boolean"
+            },
+            "label": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind",
+            "live",
+            "label"
+          ],
+          "additionalProperties": false
+        },
+        "record_ref": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "approved",
+            "applying",
+            "applied",
+            "failed",
+            "unknown",
+            "conflict"
+          ]
+        },
+        "plan_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "intent_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "idempotency_key": {
+          "type": "string"
+        },
+        "expected_version": {
+          "type": "string"
+        },
+        "observed_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_by": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        },
+        "updated_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "sensitive": {
+                "type": "boolean"
+              },
+              "redacted": {
+                "type": "boolean"
+              },
+              "before": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "intended": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "observed_after": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "provider_version": {
+                "type": "string"
+              },
+              "apply_outcome": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "applied",
+                  "not_applied",
+                  "changed_other",
+                  "mismatch"
+                ]
+              },
+              "compensation_outcome": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "restored",
+                  "not_restored",
+                  "changed_other",
+                  "mismatch"
+                ]
+              },
+              "before_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "intended_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "field",
+              "sensitive",
+              "redacted",
+              "before",
+              "intended",
+              "observed_after",
+              "provider_version",
+              "apply_outcome",
+              "compensation_outcome",
+              "before_hash",
+              "intended_hash"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "approvals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "compensate"
+                ]
+              },
+              "compensation_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "plan_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "actor_id": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "created_at": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+              },
+              "expires_at": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+              }
+            },
+            "required": [
+              "id",
+              "phase",
+              "compensation_id",
+              "plan_hash",
+              "actor_id",
+              "created_at",
+              "expires_at"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "attempts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "apply",
+                  "compensate",
+                  "reconcile"
+                ]
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "started",
+                  "succeeded",
+                  "conflict",
+                  "failed",
+                  "unknown",
+                  "reconciled_applied",
+                  "reconciled_not_applied",
+                  "reconciled_indeterminate"
+                ]
+              },
+              "compensation_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "started_attempt_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "provider_request_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "observed_version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "error_code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "detail": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "created_at": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+              }
+            },
+            "required": [
+              "id",
+              "phase",
+              "outcome",
+              "compensation_id",
+              "started_attempt_id",
+              "provider_request_id",
+              "observed_version",
+              "error_code",
+              "detail",
+              "created_at"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "compensations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "operation_id": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "planned",
+                  "approved",
+                  "compensating",
+                  "compensated",
+                  "conflict",
+                  "failed",
+                  "unknown"
+                ]
+              },
+              "plan_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "expected_version": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "expected_current": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "restore_to": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "redacted": {
+                      "type": "boolean"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "restored",
+                        "not_restored",
+                        "changed_other",
+                        "mismatch"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "expected_current",
+                    "restore_to",
+                    "redacted",
+                    "outcome"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "conflicts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "VALUE_CHANGED",
+                        "VERSION_CHANGED",
+                        "RECORD_MISSING"
+                      ]
+                    },
+                    "expected": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "actual": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "code",
+                    "expected",
+                    "actual"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "created_by": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "created_at": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+              },
+              "expires_at": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+              },
+              "failure": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "operation_id",
+              "state",
+              "plan_hash",
+              "expected_version",
+              "fields",
+              "conflicts",
+              "created_by",
+              "created_at",
+              "expires_at",
+              "failure"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "workspace_id",
+        "connector_id",
+        "connector",
+        "record_ref",
+        "state",
+        "plan_hash",
+        "intent_hash",
+        "idempotency_key",
+        "expected_version",
+        "observed_version",
+        "created_by",
+        "created_at",
+        "updated_at",
+        "failure",
+        "fields",
+        "approvals",
+        "attempts",
+        "compensations"
+      ],
+      "additionalProperties": false
+    },
+    "CompensationView": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "approved",
+            "compensating",
+            "compensated",
+            "conflict",
+            "failed",
+            "unknown"
+          ]
+        },
+        "plan_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "expected_version": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "expected_current": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "restore_to": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "redacted": {
+                "type": "boolean"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "restored",
+                  "not_restored",
+                  "changed_other",
+                  "mismatch"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "expected_current",
+              "restore_to",
+              "redacted",
+              "outcome"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALUE_CHANGED",
+                  "VERSION_CHANGED",
+                  "RECORD_MISSING"
+                ]
+              },
+              "expected": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "actual": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "field",
+              "code",
+              "expected",
+              "actual"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "created_by": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "operation_id",
+        "state",
+        "plan_hash",
+        "expected_version",
+        "fields",
+        "conflicts",
+        "created_by",
+        "created_at",
+        "expires_at",
+        "failure"
+      ],
+      "additionalProperties": false
+    },
+    "EventView": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "event_type": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "prev_hash": {
+          "type": "string"
+        },
+        "event_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        }
+      },
+      "required": [
+        "seq",
+        "event_type",
+        "payload",
+        "prev_hash",
+        "event_hash",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "JobView": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "apply",
+            "compensate",
+            "reconcile"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "leased",
+            "done",
+            "failed"
+          ]
+        },
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "compensation_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attempts_count": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "available_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        },
+        "lease_expires_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "state",
+        "operation_id",
+        "compensation_id",
+        "attempts_count",
+        "available_at",
+        "lease_expires_at",
+        "last_error",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "StatusView": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "number",
+          "const": 1
+        },
+        "jobs": {
+          "type": "object",
+          "properties": {
+            "queued": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "running": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "queued",
+            "running",
+            "failed"
+          ],
+          "additionalProperties": false
+        },
+        "operations": {
+          "type": "object",
+          "properties": {
+            "planned": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "approved": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "applying": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "applied": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "unknown": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "conflict": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "planned",
+            "approved",
+            "applying",
+            "applied",
+            "failed",
+            "unknown",
+            "conflict"
+          ],
+          "additionalProperties": false
+        },
+        "compensations_unknown": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "attention": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "operation_id": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "state": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "next_step": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation_id",
+              "state",
+              "reason",
+              "next_step"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "jobs",
+        "operations",
+        "compensations_unknown",
+        "attention"
+      ],
+      "additionalProperties": false
+    },
+    "SessionListItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "user_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "email": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        },
+        "last_seen_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "email",
+        "created_at",
+        "expires_at",
+        "last_seen_at",
+        "current"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorView": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "workspace_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "simulator",
+            "couchdb"
+          ]
+        },
+        "live": {
+          "type": "boolean"
+        },
+        "label": {
+          "type": "string"
+        },
+        "supports_atomic_conditional_write": {
+          "type": "boolean"
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "policy": {
+          "type": "object",
+          "properties": {
+            "allowed_fields": {
+              "minItems": 1,
+              "maxItems": 100,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "string",
+                      "number",
+                      "boolean"
+                    ]
+                  },
+                  "max_length": {
+                    "default": 1024,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65536
+                  },
+                  "nullable": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "sensitive": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "enum": {
+                    "maxItems": 256,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 1024
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "type",
+                  "max_length",
+                  "nullable",
+                  "sensitive"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "record_prefixes": {
+              "minItems": 1,
+              "maxItems": 100,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+              }
+            }
+          },
+          "required": [
+            "allowed_fields",
+            "record_prefixes"
+          ],
+          "additionalProperties": false
+        },
+        "config": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        }
+      },
+      "required": [
+        "id",
+        "workspace_id",
+        "name",
+        "kind",
+        "live",
+        "label",
+        "supports_atomic_conditional_write",
+        "read_only",
+        "policy",
+        "config",
+        "disabled",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "CreateConnectorRequest": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "simulator"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "policy": {
+              "type": "object",
+              "properties": {
+                "allowed_fields": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "string",
+                          "number",
+                          "boolean"
+                        ]
+                      },
+                      "max_length": {
+                        "default": 1024,
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 65536
+                      },
+                      "nullable": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "sensitive": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "enum": {
+                        "maxItems": 256,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 1024
+                        }
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "type",
+                      "max_length",
+                      "nullable",
+                      "sensitive"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "record_prefixes": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                  }
+                }
+              },
+              "required": [
+                "allowed_fields",
+                "record_prefixes"
+              ],
+              "additionalProperties": false
+            },
+            "config": {
+              "default": {
+                "supports_atomic_conditional_write": true,
+                "seed_records": []
+              },
+              "type": "object",
+              "properties": {
+                "supports_atomic_conditional_write": {
+                  "default": true,
+                  "type": "boolean"
+                },
+                "seed_records": {
+                  "default": [],
+                  "maxItems": 1000,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "record_ref": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+                      },
+                      "fields": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "record_ref",
+                      "fields"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "supports_atomic_conditional_write",
+                "seed_records"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "policy",
+            "config"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "couchdb"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "policy": {
+              "type": "object",
+              "properties": {
+                "allowed_fields": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "string",
+                          "number",
+                          "boolean"
+                        ]
+                      },
+                      "max_length": {
+                        "default": 1024,
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 65536
+                      },
+                      "nullable": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "sensitive": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "enum": {
+                        "maxItems": 256,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 1024
+                        }
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "type",
+                      "max_length",
+                      "nullable",
+                      "sensitive"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "record_prefixes": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                  }
+                }
+              },
+              "required": [
+                "allowed_fields",
+                "record_prefixes"
+              ],
+              "additionalProperties": false
+            },
+            "config": {
+              "type": "object",
+              "properties": {
+                "base_url": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "format": "uri"
+                },
+                "database": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_$()+/-]{0,63}$"
+                },
+                "timeout_ms": {
+                  "default": 10000,
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 60000
+                }
+              },
+              "required": [
+                "base_url",
+                "database",
+                "timeout_ms"
+              ],
+              "additionalProperties": false
+            },
+            "credentials": {
+              "type": "object",
+              "properties": {
+                "username": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "password": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                }
+              },
+              "required": [
+                "username",
+                "password"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "policy",
+            "config",
+            "credentials"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "LoginRequest": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "maxLength": 320,
+          "format": "email",
+          "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+        },
+        "password": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "workspace_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        }
+      },
+      "required": [
+        "email",
+        "password"
+      ],
+      "additionalProperties": false
+    },
+    "SessionView": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "email": {
+              "type": "string"
+            },
+            "display_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "email",
+            "display_name"
+          ],
+          "additionalProperties": false
+        },
+        "workspace": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "admin",
+            "operator",
+            "viewer"
+          ]
+        },
+        "csrf_token": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        }
+      },
+      "required": [
+        "user",
+        "workspace",
+        "role",
+        "csrf_token",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "CreateMemberRequest": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "maxLength": 320,
+          "format": "email",
+          "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+        },
+        "password": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 1024
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "admin",
+            "operator",
+            "viewer"
+          ]
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "email",
+        "password",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "MemberView": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "email": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "admin",
+            "operator",
+            "viewer"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        }
+      },
+      "required": [
+        "user_id",
+        "email",
+        "display_name",
+        "role",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "ExportRequest": {
+      "type": "object",
+      "properties": {
+        "operation_ids": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ImportResult": {
+      "type": "object",
+      "properties": {
+        "import_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "bundle_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "bundle_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "file_count": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "total_bytes": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "imported_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "import_id",
+        "bundle_id",
+        "bundle_hash",
+        "file_count",
+        "total_bytes",
+        "imported_at",
+        "replayed"
+      ],
+      "additionalProperties": false
+    },
+    "ErrorEnvelope": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "request_id": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "field": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "request_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
