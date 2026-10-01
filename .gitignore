@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.log
+playwright-report/
+test-results/
+__pycache__/
+.DS_Store
+.undokit/
+.claude/
