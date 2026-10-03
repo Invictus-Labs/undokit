@@ -213,16 +213,35 @@ step_negative_controls() {
   fi
   echo "control 1 ok: seeded mandatory failure turns the gate red"
 
-  # 2. A failing test must make the test runner exit non-zero (exit codes are not swallowed).
+  # 2. Require the unique planted assertion to run and fail, not merely a startup error.
   mkdir -p "$ctl/vt"
-  printf 'test("seeded failure", () => { expect(1).toBe(2); });\n' > "$ctl/vt/seeded.test.ts"
-  npx vitest run --root "$ctl/vt" --globals --config false > "$ctl/vt.out" 2>&1
+  printf 'test("undokit gate seeded assertion control", () => { expect(1).toBe(2); });\n' > "$ctl/vt/seeded.test.ts"
+  printf 'export default { test: { globals: true, environment: "node", include: ["seeded.test.ts"] } };\n' > "$ctl/vt/vitest.config.mjs"
+  rm -f "$ctl/vt/native.json"
+  npx vitest run --root "$ctl/vt" --config "$ctl/vt/vitest.config.mjs" --reporter=default --reporter=json --outputFile.json="$ctl/vt/native.json" > "$ctl/vt.out" 2>&1
   rc=$?
-  if [ "$rc" -eq 0 ]; then
-    echo "CONTROL FAILED: a seeded failing test exited 0"
-    return 1
-  fi
-  echo "control 2 ok: seeded failing test exits $rc"
+  node - "$ctl/vt/native.json" "$ctl/vt/seeded.test.ts" "$rc" <<'CONTROL_ASSERTION'
+const fs = require("node:fs");
+const path = require("node:path");
+try {
+  const reportPath = process.argv[2];
+  const testPath = path.resolve(process.argv[3]);
+  if (process.argv[4] !== "1") throw new Error("expected assertion-failure exit 1");
+  const stat = fs.lstatSync(reportPath);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== process.getuid() || stat.size === 0 || stat.size > 1024 * 1024) throw new Error("native report boundary");
+  const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+  if (report.success !== false || report.numTotalTests !== 1 || report.numFailedTests !== 1 || report.numPassedTests !== 0 || report.numPendingTests !== 0 || report.numTodoTests !== 0 || report.testResults.length !== 1) throw new Error("exact one failed assertion required");
+  const suite = report.testResults[0];
+  if (path.resolve(suite.name) !== testPath || suite.status !== "failed" || suite.message !== "" || suite.assertionResults.length !== 1) throw new Error("exact planted file without startup error required");
+  const assertion = suite.assertionResults[0];
+  if (assertion.title !== "undokit gate seeded assertion control" || assertion.fullName !== assertion.title || assertion.ancestorTitles.length !== 0 || assertion.status !== "failed" || assertion.failureMessages.length !== 1 || !/AssertionError: expected 1 to be 2/.test(assertion.failureMessages[0])) throw new Error("unique planted AssertionError required");
+} catch {
+  console.error("CONTROL FAILED: planted test assertion was not independently verified");
+  process.exit(1);
+}
+CONTROL_ASSERTION
+  if [ "$?" -ne 0 ]; then return 1; fi
+  echo "control 2 ok: unique planted AssertionError verified (exit $rc)"
 
   # 3. A planted fake secret must be caught by the secret scanner.
   local needle
