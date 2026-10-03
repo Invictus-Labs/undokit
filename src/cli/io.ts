@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
+import { closeSync, fchmodSync, openSync, existsSync, lstatSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync, type Stats } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
@@ -101,7 +101,14 @@ export function writeOutputFile(path: string, data: string, mode = 0o600): void 
   mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
   const temp = `${target}.tmp-${process.pid}`;
   try {
-    writeFileSync(temp, data, { flag: "wx", mode });
+    const fd = openSync(temp, "wx", mode);
+    try {
+      writeFileSync(fd, data);
+      // The explicit output mode also applies under a restrictive inherited umask.
+      fchmodSync(fd, mode);
+    } finally {
+      closeSync(fd);
+    }
     renameSync(temp, target);
   } catch (error) {
     try {

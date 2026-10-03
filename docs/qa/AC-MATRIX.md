@@ -1,5 +1,7 @@
 # UndoKit AC matrix (QA-owned)
 
+> **Historical evidence / current WIP notice.** This public draft projects private source 9aaa (supported-floor development dependency correction, explicit CLI mode validation and dependency-license update). Existing PASS/NOT RUN/provider statements below are historical evidence at their recorded revisions, not a new full-gate or human verdict for this projection. Later native CouchDB provider and scoped minimum-Node evidence are separate bounded records; native CouchDB does not certify the original Docker image/Compose or production metadata. Final-source complete qualification, exact independent release review, owner decisions and actual non-builder AC-11 remain pending. Source-only human inputs are prepared, not a maintainer-built qualifying package or a human result. No release acceptance is asserted.
+
 Owner: undokit-qa (independent of the builders). Grades against `docs/DOD.md` (verbatim PRD sections 5, 5b, 5c).
 
 ## Status vocabulary
