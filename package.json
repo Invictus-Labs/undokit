@@ -5,8 +5,30 @@
   "license": "MIT",
   "author": "Jeremy Knox",
   "type": "module",
-  "engines": { "node": ">=22.12" },
-  "bin": { "undokit": "dist/src/cli/main.js" },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "bin": {
+    "undokit": "dist/src/cli/main.js"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "migrations",
+    "templates",
+    "docs/OPERATIONS.md",
+    "docs/RUNBOOK.md",
+    "docs/HUMAN-DRILL.md",
+    "docs/ARCHITECTURE.md",
+    "LICENSE",
+    "README.md",
+    "docs/KNOWN-LIMITATIONS.md",
+    "docs/PROVIDER-DECISION.md",
+    "docs/DEPENDENCY-LICENSES.md",
+    "docs/DOD.md",
+    "docs/PRD.md",
+    "docs/qa/AC-MATRIX.md"
+  ],
   "scripts": {
     "build": "npm run build:server && npm run build:web",
     "build:server": "tsc -p tsconfig.json",
@@ -33,7 +55,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
     "@vitest/coverage-v8": "5.0.2",
-    "jsdom": "30.1.1",
+    "jsdom": "28.1.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tsx": "4.23.15",
