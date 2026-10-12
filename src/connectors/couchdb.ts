@@ -8,6 +8,7 @@ import {
   type WriteResult,
 } from "./crm.js";
 import { assertOutboundAllowed } from "./outbound.js";
+import { isExactNumberLiteral, scanObject, spliceMembers } from "./raw-json.js";
 
 export interface CouchdbOptions {
   baseUrl: string;
@@ -24,6 +25,8 @@ const NEVER_SENT_CODES = new Set(["ECONNREFUSED", "ENOTFOUND", "EHOSTUNREACH", "
 interface HttpResult {
   status: number;
   body: Record<string, unknown> | null;
+  /** The response body exactly as received; writes are spliced into this text, never re-serialized from `body`. */
+  text: string;
   requestId: string | null;
 }
 
@@ -55,11 +58,11 @@ export class CouchdbConnector implements CrmConnector {
    * One HTTP exchange inside the caller's deadline: the allowlist/DNS check, the request and the body read
    * all count against the same budget. Never follows redirects; re-validates the target against the allowlist.
    */
-  private http(method: string, url: string, body: unknown, d: Deadline): Promise<HttpResult> {
+  private http(method: string, url: string, body: string | undefined, d: Deadline): Promise<HttpResult> {
     return Promise.race([this.exchange(method, url, body, d), d.expired]);
   }
 
-  private async exchange(method: string, url: string, body: unknown, d: Deadline): Promise<HttpResult> {
+  private async exchange(method: string, url: string, body: string | undefined, d: Deadline): Promise<HttpResult> {
     await assertOutboundAllowed(url, this.opts.allowedHosts);
     if (method === "PUT" && !d.fired) d.sent = true;
     const res = await this.fetchImpl(url, {
@@ -67,7 +70,7 @@ export class CouchdbConnector implements CrmConnector {
       redirect: "manual",
       signal: d.signal,
       headers: { authorization: this.authHeader, accept: "application/json", ...(body === undefined ? {} : { "content-type": "application/json" }) },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body,
     });
     const text = await readLimited(res);
     let parsed: Record<string, unknown> | null = null;
@@ -79,7 +82,7 @@ export class CouchdbConnector implements CrmConnector {
         parsed = null;
       }
     }
-    return { status: res.status, body: parsed, requestId: res.headers.get("x-couch-request-id") };
+    return { status: res.status, body: parsed, text, requestId: res.headers.get("x-couch-request-id") };
   }
 
   async ping(): Promise<void> {
@@ -114,8 +117,11 @@ export class CouchdbConnector implements CrmConnector {
     if (res.status !== 200 || !res.body) throw new ConnectorUnavailableError(`provider returned status ${res.status}`);
     const rev = res.body["_rev"];
     if (typeof rev !== "string") throw new ConnectorUnavailableError("provider document has no revision");
-    const nonScalar = nonScalarFields(res.body);
-    return { record_ref: recordRef, version: rev, fields: scalarFields(res.body), ...(nonScalar.length > 0 ? { non_scalar_fields: nonScalar } : {}) };
+    const inexact = inexactNumberFields(res.text);
+    const nonScalar = [...nonScalarFields(res.body), ...inexact];
+    const fields = scalarFields(res.body);
+    for (const key of inexact) delete fields[key];
+    return { record_ref: recordRef, version: rev, fields, ...(nonScalar.length > 0 ? { non_scalar_fields: nonScalar } : {}) };
   }
 
   /** The whole conditional write (allowlist/DNS, read, PUT and the 409 re-read) shares one `timeoutMs` deadline. */
@@ -154,8 +160,17 @@ export class CouchdbConnector implements CrmConnector {
     if (currentRev !== expectedVersion) {
       return { outcome: "conflict", current_version: currentRev, provider_request_id: current.requestId ?? ctx.requestId };
     }
-    // Step 2: merge only the patched members into the document read at that revision.
-    const merged: Record<string, unknown> = { ...current.body, ...patch, _rev: expectedVersion };
+    // Step 2: splice only the patched members into the document text read at that revision. The rest of the document
+    // (large or high-precision numbers, nested members, `_attachments` stubs, unknown members) is sent back byte for
+    // byte; re-serializing a parsed copy would round-trip every number through float64 and corrupt it.
+    const replacements = new Map<string, string>(Object.entries(patch).map(([k, v]) => [k, JSON.stringify(v)]));
+    replacements.set("_rev", JSON.stringify(expectedVersion));
+    let merged: string;
+    try {
+      merged = spliceMembers(current.text, replacements);
+    } catch {
+      throw new ConnectorUnavailableError("provider document could not be read losslessly");
+    }
     // Step 3: the provider evaluates `_rev` and the write as one atomic step. A 409 means someone else won.
     let res: HttpResult;
     try {
@@ -239,6 +254,26 @@ function scalarFields(doc: Record<string, unknown>): Record<string, Scalar> {
     if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") out[key] = value;
   }
   return out;
+}
+
+/**
+ * Top-level members holding a number that float64 cannot represent exactly. Exposing the parsed value would record a
+ * rounded `before` (and a restore would write the rounded number), so these are reported like non-scalar members.
+ */
+function inexactNumberFields(text: string): string[] {
+  let members;
+  try {
+    members = scanObject(text).members;
+  } catch {
+    throw new ConnectorUnavailableError("provider document could not be read losslessly");
+  }
+  const out = new Set<string>();
+  for (const m of members) {
+    if (m.key.startsWith("_")) continue;
+    const c = m.raw[0];
+    if ((c === "-" || (c !== undefined && c >= "0" && c <= "9")) && !isExactNumberLiteral(m.raw)) out.add(m.key);
+  }
+  return [...out];
 }
 
 function nonScalarFields(doc: Record<string, unknown>): string[] {

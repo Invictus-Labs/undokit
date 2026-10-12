@@ -3,6 +3,9 @@ import type { Clock } from "../domain/clock.js";
 /** Default upper bound on tracked keys, so unique emails cannot grow the map without limit. */
 export const DEFAULT_MAX_KEYS = 10_000;
 
+/** The per-address bucket (all emails) allows this many times the per-(address,email) failure budget. */
+export const LOGIN_IP_FAILURE_MULTIPLIER = 5;
+
 /** Failed-login limiter (in memory, per process). Keyed by whatever the caller composes (ip + email). */
 export class LoginRateLimiter {
   private readonly failures = new Map<string, number[]>();

@@ -206,7 +206,7 @@ immediately before writing.
 - `backupDatabase` reads every table in one read-only REPEATABLE READ transaction (a consistent snapshot).
 - The worker and login limits: leases are at least 5 s, approvals at least 60 s and the poll interval at least 10 ms when
   set through the environment; the login limiter tracks at most 10 000 keys (expired first, then unlocked least-recently-failed, locked-out last).
-- Login failures are rate limited per (ip, email); unknown users still pay the password-hash cost.
+- Login failures are rate limited per (ip, email) and, with a budget five times larger, per client address across all emails (that bucket is not reset by a successful sign-in); unknown users still pay the password-hash cost.
 - Outbound network: connector URLs must match the allowlist (default loopback only), carry no credentials, and
   resolve to loopback unless the operator allowlisted a non-loopback host; redirects are never followed.
 - Output hygiene: error messages never echo submitted values; unknown request keys are classified (deletion,

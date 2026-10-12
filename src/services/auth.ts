@@ -223,7 +223,14 @@ export async function login(kit: UndoKit, body: unknown, meta: LoginMeta = {}): 
   const req = parseBody(loginRequestSchema, body);
   const email = req.email.trim().toLowerCase();
   const limiterKey = `${meta.ip ?? "-"}|${email}`;
-  if (kit.loginLimiter.blocked(limiterKey)) throw new AppError("RATE_LIMITED", "too many failed sign-in attempts; try again later");
+  const ipKey = meta.ip === undefined ? undefined : `ip|${meta.ip}`;
+  if (kit.loginLimiter.blocked(limiterKey) || (ipKey !== undefined && kit.loginIpLimiter.blocked(ipKey))) {
+    throw new AppError("RATE_LIMITED", "too many failed sign-in attempts; try again later");
+  }
+  const recordFailure = () => {
+    kit.loginLimiter.recordFailure(limiterKey);
+    if (ipKey !== undefined) kit.loginIpLimiter.recordFailure(ipKey); // never cleared by a success: one valid account must not reset it
+  };
   const found = await kit.db.query<{ id: string; email: string; display_name: string | null; password_hash: string }>(
     "SELECT id, email, display_name, password_hash FROM users WHERE email = $1",
     [email],
@@ -231,7 +238,7 @@ export async function login(kit: UndoKit, body: unknown, meta: LoginMeta = {}): 
   const user = found.rows[0];
   const ok = await verifyPassword(req.password, user?.password_hash ?? (await getDummyHash()));
   if (!user || !ok) {
-    kit.loginLimiter.recordFailure(limiterKey);
+    recordFailure();
     throw new AppError("INVALID_CREDENTIALS", "email or password is incorrect");
   }
   const memberships = await kit.db.query<{ workspace_id: string; role: Role; name: string }>(
@@ -241,7 +248,7 @@ export async function login(kit: UndoKit, body: unknown, meta: LoginMeta = {}): 
   );
   const membership = memberships.rows[0];
   if (!membership) {
-    kit.loginLimiter.recordFailure(limiterKey);
+    recordFailure();
     throw new AppError("INVALID_CREDENTIALS", "email or password is incorrect");
   }
   kit.loginLimiter.clear(limiterKey);

@@ -58,11 +58,15 @@ there is no window between a check and a write that UndoKit controls.
 - Records are CouchDB documents in one configured database; `record_ref` is the document id (no leading
   underscore; the allowlist and scope prefixes reject provider-internal ids). Scalar fields are top-level
   document members; the allowlist limits which members may be patched.
-- Version token = `_rev`. `read(record)` is `GET /{db}/{id}` and returns `{version: _rev, fields}`.
+- Version token = `_rev`. `read(record)` is `GET /{db}/{id}` and returns `{version: _rev, fields}`. A
+  top-level number that a double cannot hold exactly (for example an integer above 2^53) is not exposed as a
+  scalar; it is reported like a nested member, so planning a patch to it is refused with `NON_SCALAR_VALUE`.
 - `conditionalWrite(record, patch, expectedVersion)`:
   1. `GET` the document. If its `_rev` differs from `expectedVersion`, return `conflict` without writing.
   2. Merge only the patched allowlisted members into the document that was read (CouchDB `PUT` replaces the
-     whole document, so the merge needs the document at that revision).
+     whole document, so the merge needs the document at that revision). The merge splices the new values into
+     the document's raw text; every other member (large or high-precision numbers, nested values,
+     `_attachments` stubs, unknown members) is sent back byte for byte and never re-serialized.
   3. `PUT /{db}/{id}` with `_rev = expectedVersion`. Any change between steps 1 and 3 makes the provider
      return 409, which UndoKit reports as `conflict` and records as `CONFLICT`. The step-1 comparison is only
      an early exit; correctness rests on the provider rejecting the stale `_rev` in step 3.

@@ -6,7 +6,7 @@ import { systemClock, randomIds, type Clock, type IdGenerator } from "./domain/c
 import { FaultInjector } from "./domain/faults.js";
 import { SecretRegistry } from "./domain/redact.js";
 import type { KeyRing } from "./evidence/crypto.js";
-import { LoginRateLimiter } from "./services/ratelimit.js";
+import { LOGIN_IP_FAILURE_MULTIPLIER, LoginRateLimiter } from "./services/ratelimit.js";
 
 export interface UndoKitOptions {
   /** `memory://`, `pglite://<dir>` or `postgres://...`. Ignored when `db` is given. */
@@ -41,6 +41,8 @@ export interface UndoKit {
   connectors: ConnectorRegistry;
   config: ServiceConfig;
   loginLimiter: LoginRateLimiter;
+  /** Failed logins per client address across all emails, so cycling emails cannot keep scrypt busy unthrottled. */
+  loginIpLimiter: LoginRateLimiter;
   migrationsDir: string | undefined;
   /** Mutable: set once at startup from the migration result and refreshed by `refreshReadiness`. */
   readiness: Readiness;
@@ -70,6 +72,7 @@ export async function createUndoKit(options: UndoKitOptions): Promise<UndoKit> {
     connectors: new ConnectorRegistry(options.keyring, secrets, config.allowedHosts, options.fetch, connectorDeadlineMs(config)),
     config,
     loginLimiter: new LoginRateLimiter(clock, config.loginMaxFailures, config.loginWindowMs),
+    loginIpLimiter: new LoginRateLimiter(clock, config.loginMaxFailures * LOGIN_IP_FAILURE_MULTIPLIER, config.loginWindowMs),
     migrationsDir: options.migrationsDir,
     readiness: toReadiness(status),
     fetch: options.fetch,

@@ -190,14 +190,15 @@ export async function planOperation(kit: UndoKit, actor: Actor, body: unknown, i
   if (current.version !== req.expected_version) {
     throw new AppError("VERSION_CONFLICT", "the record changed since expected_version was read; re-read and plan again");
   }
-  // A nested (object/array) current value is not exposed as a scalar; recording it as before=null would lose it on undo.
+  // A nested (object/array) or inexact-number current value is not exposed as a scalar; recording it as before=null
+  // (or as a rounded number) would lose it on undo.
   const nonScalar = new Set(current.non_scalar_fields ?? []);
   const nested = validated.filter((f) => nonScalar.has(f.field));
   if (nested.length > 0) {
     throw new AppError(
       "NON_SCALAR_VALUE",
       "the record's current value for an allowlisted field is not a scalar; it cannot be captured or restored",
-      nested.map((f) => ({ code: "NON_SCALAR_VALUE", field: f.field, message: "current value is an object or array" })),
+      nested.map((f) => ({ code: "NON_SCALAR_VALUE", field: f.field, message: "current value is an object, an array or a number that cannot be represented exactly" })),
     );
   }
   const changed = validated.filter((f) => (current.fields[f.field] ?? null) !== f.value);

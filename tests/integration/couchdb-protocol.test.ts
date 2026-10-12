@@ -37,6 +37,9 @@ interface Doc {
 
 class FakeCouch {
   readonly docs = new Map<string, Doc>();
+  /** Documents stored as raw JSON text (as CouchDB keeps them: numbers exact, never round-tripped through float64). */
+  readonly raw = new Map<string, { n: number; text: string }>();
+  lastPutText = "";
   server!: Server;
   port = 0;
   puts = 0;
@@ -51,11 +54,22 @@ class FakeCouch {
   readonly password = "protocol-test-placeholder";
 
   rev(id: string): string | undefined {
+    const r = this.raw.get(id);
+    if (r) return `${r.n}-${"b".repeat(8)}`;
     const d = this.docs.get(id);
     return d ? `${d.n}-${"a".repeat(8)}` : undefined;
   }
   seed(id: string, fields: Record<string, unknown>): void {
+    this.raw.delete(id);
     this.docs.set(id, { n: 1, fields });
+  }
+  /** Seed a raw document; `{{rev}}` in the text is replaced by the current revision on every read. */
+  seedRaw(id: string, text: string): void {
+    this.docs.delete(id);
+    this.raw.set(id, { n: 1, text });
+  }
+  rawText(id: string): string {
+    return this.raw.get(id)!.text;
   }
 
   async start(): Promise<void> {
@@ -103,6 +117,11 @@ class FakeCouch {
         return void res.end();
       }
       if (this.getMode === "slow") return void setTimeout(() => res.destroyed || this.json(res, 200, {}), 600);
+      const r = this.raw.get(id);
+      if (r) {
+        res.writeHead(200, { "content-type": "application/json", "x-couch-request-id": "req-fake-1" });
+        return void res.end(r.text.replace("{{rev}}", this.rev(id)!));
+      }
       const d = this.docs.get(id);
       if (!d) return this.json(res, 404, { error: "not_found", reason: "missing" });
       if (this.getMode === "no-rev") return this.json(res, 200, { _id: id, ...d.fields });
@@ -111,7 +130,9 @@ class FakeCouch {
     if (req.method === "PUT") {
       const chunks: Buffer[] = [];
       for await (const c of req) chunks.push(c as Buffer);
-      const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+      const text = Buffer.concat(chunks).toString("utf8");
+      const body = JSON.parse(text) as Record<string, unknown>;
+      this.lastPutText = text;
       this.puts += 1;
       this.beforePut?.(id);
       if (this.putMode === "reset-before") return void req.socket.destroy();
@@ -127,6 +148,13 @@ class FakeCouch {
         return void res.end();
       }
       if (this.putMode === "slow") return void setTimeout(() => res.destroyed || this.json(res, 201, { ok: true, rev: "9-slow" }), 600);
+      const rawDoc = this.raw.get(id);
+      if (rawDoc) {
+        if (body["_rev"] !== this.rev(id)) return this.json(res, 409, { error: "conflict", reason: "Document update conflict." });
+        rawDoc.n += 1;
+        rawDoc.text = text.replace(JSON.stringify(body["_rev"]), '"{{rev}}"');
+        return this.json(res, 201, { ok: true, id, rev: this.rev(id) });
+      }
       const current = this.docs.get(id);
       if (!current || body["_rev"] !== this.rev(id)) return this.json(res, 409, { error: "conflict", reason: "Document update conflict." });
       const { _rev: _r, _id: _i, ...fields } = body;
@@ -150,6 +178,8 @@ afterAll(async () => {
 });
 afterEach(() => {
   couch.docs.clear();
+  couch.raw.clear();
+  couch.lastPutText = "";
   couch.getMode = "ok";
   couch.putMode = "ok";
   couch.pingStatus = 200;
@@ -330,6 +360,42 @@ describe("protocol test, not live: CouchdbConnector conditional writes", () => {
     expect(err).toBeInstanceOf(ConnectorRejectedError);
     expect(couch.puts).toBe(0);
   });
+  // Round 3: the write must not round-trip the document through JSON.parse/JSON.stringify (float64 corrupts numbers).
+  const LOSSLESS_DOC =
+    '{"_id":"c","_rev":"{{rev}}","stage":"lead","big":9007199254740993,"huge":1e400,"precise":0.1000000000000000055511151231257827,' +
+    '"neg":-12345678901234567890123,"nested":{"id":18446744073709551615,"list":[1,2.50,{"deep":12345678901234567890}],"s":"a\\"b\\u00e9}]"},' +
+    '"tags":["x",null,true,1.0e2],"_attachments":{"note.txt":{"content_type":"text/plain","revpos":1,"digest":"md5-abc","length":5,"stub":true}},' +
+    '"unknown_future_member":{"k":[]} }';
+
+  it("only the patched member changes: large integers, precision, nested members, _attachments stubs and unknown members are sent back byte for byte", async () => {
+    couch.seedRaw("c", LOSSLESS_DOC);
+    const res = await connector().conditionalWrite("c", { stage: "customer" }, "1-bbbbbbbb", ctx);
+    expect(res).toEqual({ outcome: "written", new_version: "2-bbbbbbbb", provider_request_id: "req-fake-1" });
+    const expected = LOSSLESS_DOC.replace('"stage":"lead"', '"stage":"customer"');
+    expect(couch.lastPutText).toBe(expected.replace("{{rev}}", "1-bbbbbbbb"));
+    expect(couch.rawText("c")).toBe(expected);
+    expect(couch.lastPutText).toContain('"big":9007199254740993');
+    expect(couch.lastPutText).toContain('"huge":1e400');
+    expect(couch.lastPutText).toContain('"id":18446744073709551615');
+  });
+
+  it("a patched member that is absent is appended; every existing member is kept verbatim", async () => {
+    couch.seedRaw("c", '{"_id":"c","_rev":"{{rev}}","big":9007199254740993}');
+    await connector().conditionalWrite("c", { stage: "customer", score: 7, vip: null }, "1-bbbbbbbb", ctx);
+    expect(couch.rawText("c")).toBe('{"_id":"c","_rev":"{{rev}}","big":9007199254740993,"stage":"customer","score":7,"vip":null}');
+  });
+
+  it("a top-level number float64 cannot hold exactly is never exposed as a (rounded) scalar; it is reported like a nested member", async () => {
+    couch.seedRaw("c", '{"_id":"c","_rev":"{{rev}}","score":9007199254740993,"ok":42,"f":1.50,"e":1e2,"tiny":1e-400,"inf":1e400,"neg":-17,"s":"9007199254740993"}');
+    const rec = await connector().read("c");
+    expect(rec).toEqual({
+      record_ref: "c",
+      version: "1-bbbbbbbb",
+      fields: { ok: 42, f: 1.5, e: 100, neg: -17, s: "9007199254740993" },
+      non_scalar_fields: ["score", "tiny", "inf"],
+    });
+  });
+
 });
 
 describe("protocol test, not live: the full service stack over the connector", () => {
@@ -434,6 +500,37 @@ describe("protocol test, not live: the full service stack over the connector", (
     await worker.runOnce();
     expect((await getOperation(kit, admin, id)).state).toBe("conflict");
     expect(couch.docs.get("contact-1")!.fields).toEqual({ stage: "churned" });
+  });
+
+  it("apply and compensate leave every member outside the patch byte-identical (large integers, nested members, _attachments stubs)", async () => {
+    const original =
+      '{"_id":"contact-1","_rev":"{{rev}}","stage":"lead","account_id":9007199254740993,"tags":["a",{"since":18446744073709551615}],' +
+      '"meta":{"x":1,"ratio":0.1000000000000000055511151231257827},"_attachments":{"c.txt":{"content_type":"text/plain","revpos":1,"digest":"md5-x","length":1,"stub":true}}}';
+    couch.seedRaw("contact-1", original);
+    const worker = createWorker(kit, { workerId: "couch-worker-lossless" });
+    const id = await plan({ stage: "customer" });
+    await worker.runOnce();
+    expect((await getOperation(kit, admin, id)).state).toBe("applied");
+    expect(couch.rawText("contact-1")).toBe(original.replace('"stage":"lead"', '"stage":"customer"'));
+    const cp = await createCompensationPlan(kit, admin, id);
+    expect(cp.state).toBe("planned");
+    await compensateOperation(kit, admin, id, { plan_hash: cp.plan_hash });
+    await worker.runOnce();
+    expect(couch.rawText("contact-1")).toBe(original);
+    expect(couch.puts).toBe(2);
+  });
+
+  it("an allowlisted field holding a number float64 cannot represent exactly is refused at planning (a rounded before value would corrupt the undo)", async () => {
+    couch.seedRaw("contact-1", '{"_id":"contact-1","_rev":"{{rev}}","stage":9007199254740993}');
+    const rev = couch.rev("contact-1")!;
+    const err = await planOperation(kit, admin, { connector_id: connectorId, record_ref: "contact-1", patch: { stage: "customer" }, expected_version: rev }, `k-${kit.ids.next()}`).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(AppError);
+    expect((err as AppError).code).toBe("NON_SCALAR_VALUE");
+    expect((err as AppError).details?.map((d) => d.field)).toEqual(["stage"]);
+    expect(couch.puts).toBe(0);
   });
 
   it("creating a connector whose host is not allowlisted is refused and nothing is stored", async () => {

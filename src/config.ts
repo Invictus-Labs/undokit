@@ -17,7 +17,7 @@ export interface ServiceConfig {
   allowedHosts: readonly string[];
   maxImportBytes: number;
   maxImportFiles: number;
-  /** Failed logins allowed per (ip,email) inside `loginWindowMs`. */
+  /** Failed logins allowed per (ip,email) inside `loginWindowMs`; per ip across all emails the budget is 5x this. */
   loginMaxFailures: number;
   loginWindowMs: number;
 }
