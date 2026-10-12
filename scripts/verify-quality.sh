@@ -225,14 +225,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 try {
   const reportPath = process.argv[2];
-  const testPath = path.resolve(process.argv[3]);
+  // Compare canonical paths: on macOS the temp dir is a symlink (/var -> /private/var) and vitest reports the real path.
+  const testPath = fs.realpathSync(process.argv[3]);
   if (process.argv[4] !== "1") throw new Error("expected assertion-failure exit 1");
   const stat = fs.lstatSync(reportPath);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== process.getuid() || stat.size === 0 || stat.size > 1024 * 1024) throw new Error("native report boundary");
   const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
   if (report.success !== false || report.numTotalTests !== 1 || report.numFailedTests !== 1 || report.numPassedTests !== 0 || report.numPendingTests !== 0 || report.numTodoTests !== 0 || report.testResults.length !== 1) throw new Error("exact one failed assertion required");
   const suite = report.testResults[0];
-  if (path.resolve(suite.name) !== testPath || suite.status !== "failed" || suite.message !== "" || suite.assertionResults.length !== 1) throw new Error("exact planted file without startup error required");
+  if (fs.realpathSync(path.resolve(suite.name)) !== testPath || suite.status !== "failed" || suite.message !== "" || suite.assertionResults.length !== 1) throw new Error("exact planted file without startup error required");
   const assertion = suite.assertionResults[0];
   if (assertion.title !== "undokit gate seeded assertion control" || assertion.fullName !== assertion.title || assertion.ancestorTitles.length !== 0 || assertion.status !== "failed" || assertion.failureMessages.length !== 1 || !/AssertionError: expected 1 to be 2/.test(assertion.failureMessages[0])) throw new Error("unique planted AssertionError required");
 } catch {

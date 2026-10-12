@@ -178,10 +178,12 @@ describe("protocol test, not live: CouchdbConnector reads", () => {
     expect(c.label).toMatch(/not a CRM product/);
   });
 
-  it("reads a document: version is the _rev, only top-level scalar members are exposed, provider-internal and nested members are not", async () => {
+  it("reads a document: version is the _rev, only top-level scalar members are exposed, provider-internal and nested members are not (their presence is reported)", async () => {
     couch.seed("contact-1", { lifecycle_stage: "lead", lead_score: 40, vip: false, note: null, tags: ["a"], nested: { x: 1 } });
     const rec = await connector().read("contact-1");
-    expect(rec).toEqual({ record_ref: "contact-1", version: "1-aaaaaaaa", fields: { lifecycle_stage: "lead", lead_score: 40, vip: false, note: null } });
+    expect(rec).toEqual({ record_ref: "contact-1", version: "1-aaaaaaaa", fields: { lifecycle_stage: "lead", lead_score: 40, vip: false, note: null }, non_scalar_fields: ["tags", "nested"] });
+    couch.seed("contact-2", { lifecycle_stage: "lead" });
+    expect(await connector().read("contact-2")).toEqual({ record_ref: "contact-2", version: "1-aaaaaaaa", fields: { lifecycle_stage: "lead" } });
   });
 
   it("sends Basic credentials and URL-encodes the record reference and database", async () => {
@@ -402,6 +404,22 @@ describe("protocol test, not live: the full service stack over the connector", (
     await worker.runOnce();
     expect((await getOperation(kit, admin, id)).state).toBe("applied");
     expect(couch.puts).toBe(1);
+  });
+
+  it("an allowlisted field whose current value is nested (object/array) is refused at planning: it would be recorded as before=null and lost on undo", async () => {
+    for (const nested of [{ code: "lead", since: 2020 }, ["lead", "mql"]]) {
+      couch.seed("contact-1", { stage: nested });
+      const rev = couch.rev("contact-1")!;
+      const err = await planOperation(kit, admin, { connector_id: connectorId, record_ref: "contact-1", patch: { stage: "customer" }, expected_version: rev }, `k-${kit.ids.next()}`).then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+      expect(err).toBeInstanceOf(AppError);
+      expect((err as AppError).code).toBe("NON_SCALAR_VALUE");
+      expect((err as AppError).details?.map((d) => d.field)).toEqual(["stage"]);
+      expect(couch.docs.get("contact-1")!.fields).toEqual({ stage: nested });
+      expect(couch.puts).toBe(0);
+    }
   });
 
   it("an edit planted between the connector's read and PUT makes the apply a CONFLICT with the edit kept", async () => {

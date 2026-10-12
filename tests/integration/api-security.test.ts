@@ -59,18 +59,23 @@ describe("authentication, sessions and CSRF", () => {
     expect(cookie).toMatch(/HttpOnly/);
     expect(cookie).toMatch(/SameSite=Strict/);
     expect(cookie).toMatch(/Path=\//);
-    expect(cookie).not.toMatch(/Secure/); // default is for loopback development
+    expect(cookie).toMatch(/; Secure/); // secure by default: a library caller that omits the option never gets a plaintext cookie
     expect(JSON.stringify(r.reply.body)).not.toContain(r.client!.token);
     expect(r.reply.body.role).toBe("operator");
   });
 
-  it("the Secure attribute is set when the server is configured for a non-loopback deployment", async () => {
+  it("the Secure attribute is set when configured for a non-loopback deployment and omitted only when explicitly turned off (loopback)", async () => {
     const secureApp = await buildServer(env.kit, { cookieSecure: true });
+    const loopbackApp = await buildServer(env.kit, { cookieSecure: false });
     try {
       const res = await secureApp.inject({ method: "POST", url: "/api/v1/auth/login", headers: { host: HOST }, payload: { email: env.emails.viewer, password: env.passwords.viewer } });
       expect(String(res.headers["set-cookie"])).toMatch(/; Secure/);
+      const plain = await loopbackApp.inject({ method: "POST", url: "/api/v1/auth/login", headers: { host: HOST }, payload: { email: env.emails.viewer, password: env.passwords.viewer } });
+      expect(String(plain.headers["set-cookie"])).toMatch(/HttpOnly/);
+      expect(String(plain.headers["set-cookie"])).not.toMatch(/Secure/);
     } finally {
       await secureApp.close();
+      await loopbackApp.close();
     }
   });
 

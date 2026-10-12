@@ -146,19 +146,35 @@ async function recordLateResult(
  * Called by the worker when a handler failed with an ordinary error. If the failure left an attempt in flight
  * (applying/compensating with a started attempt), convert it to UNKNOWN with a queued read-only reconcile in one
  * transaction; never re-send the write. Returns true when it converted something.
+ *
+ * A failure BEFORE dispatch (still `approved`: the executor's first transaction rolled back, no attempt was started
+ * and nothing was sent) must not strand the approval either, because nothing else ever moves an approved row whose
+ * job has failed. The approval is released (approved -> planned, code DISPATCH_FAILED) so it can be approved again
+ * or re-planned; this returns false so the job is still recorded as failed with its error.
  */
 export async function recoverInFlight(kit: UndoKit, job: JobRecord, code: string): Promise<boolean> {
   const reason = "the worker failed after the remote write may have been sent and before the result was recorded";
+  const dispatchFailed = { code: "DISPATCH_FAILED", message: "the job failed before the write was sent; nothing was written; approve again" };
   return kit.db.transaction(async (tx) => {
     if (await leaseLost(tx, job)) return false; // the worker that reclaimed the job owns recovery
     const op = await loadOperationRow(tx, job.workspace_id, job.operation_id, true);
     if (job.kind === "apply") {
+      if (op.state === "approved") {
+        await setOperationState(kit, tx, op, "planned", { failure: dispatchFailed });
+        await emit(kit, tx, op, "approval.released", { code: dispatchFailed.code });
+        return false;
+      }
       if (op.state !== "applying") return false;
       await markInterrupted(kit, tx, op, null, code, reason);
       return true;
     }
     if (job.kind === "compensate" && job.compensation_id) {
       const comp = await loadCompensation(tx, job.compensation_id, true);
+      if (comp.state === "approved") {
+        await setCompensationState(kit, tx, comp, "planned", { failure: dispatchFailed });
+        await emit(kit, tx, op, "approval.released", { compensation_id: comp.id, code: dispatchFailed.code });
+        return false;
+      }
       if (comp.state !== "compensating") return false;
       await markInterrupted(kit, tx, op, comp, code, reason);
       return true;

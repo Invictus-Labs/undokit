@@ -39,7 +39,10 @@ declare module "fastify" {
 }
 
 export interface ServerOptions {
-  /** Add the Secure attribute to the session cookie (default: true unless bound to loopback). */
+  /**
+   * Add the Secure attribute to the session cookie (default: true). Pass false only for a listener verified to be
+   * loopback-only; the CLI and `startServer` derive it from the bind host.
+   */
   cookieSecure?: boolean;
   /** Directory of the built web UI; served at `/` with an SPA fallback when it exists. */
   webRoot?: string | undefined;
@@ -112,7 +115,7 @@ function fastifyTrustProxy(value: boolean | number | string[] | undefined): bool
 }
 
 export async function buildServer(kit: UndoKit, opts: ServerOptions = {}): Promise<FastifyInstance> {
-  const secureCookie = opts.cookieSecure ?? false;
+  const secureCookie = opts.cookieSecure ?? true;
   const app = Fastify({
     logger: opts.logger === true,
     bodyLimit: DEFAULT_LIMITS.maxBodyBytes,

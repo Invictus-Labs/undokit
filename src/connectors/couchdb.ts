@@ -114,7 +114,8 @@ export class CouchdbConnector implements CrmConnector {
     if (res.status !== 200 || !res.body) throw new ConnectorUnavailableError(`provider returned status ${res.status}`);
     const rev = res.body["_rev"];
     if (typeof rev !== "string") throw new ConnectorUnavailableError("provider document has no revision");
-    return { record_ref: recordRef, version: rev, fields: scalarFields(res.body) };
+    const nonScalar = nonScalarFields(res.body);
+    return { record_ref: recordRef, version: rev, fields: scalarFields(res.body), ...(nonScalar.length > 0 ? { non_scalar_fields: nonScalar } : {}) };
   }
 
   /** The whole conditional write (allowlist/DNS, read, PUT and the 409 re-read) shares one `timeoutMs` deadline. */
@@ -238,6 +239,12 @@ function scalarFields(doc: Record<string, unknown>): Record<string, Scalar> {
     if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") out[key] = value;
   }
   return out;
+}
+
+function nonScalarFields(doc: Record<string, unknown>): string[] {
+  return Object.entries(doc)
+    .filter(([key, value]) => !key.startsWith("_") && value !== null && typeof value === "object")
+    .map(([key]) => key);
 }
 
 function causeCode(err: unknown): string | undefined {

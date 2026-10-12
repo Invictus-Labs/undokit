@@ -17,7 +17,7 @@ export async function startDaemon(opts: EnvOptions & { worker?: boolean } = {}):
   const webRoot = join(REPO_ROOT, "dist", "web");
   if (!existsSync(join(webRoot, "index.html"))) throw new Error("dist/web is missing: run `npm run build` before the browser tests");
   const env = await makeEnv(opts);
-  const app = await buildServer(env.kit, { webRoot });
+  const app = await buildServer(env.kit, { webRoot, cookieSecure: false }); // loopback-only listener below
   // `worker: false` leaves approved jobs queued so a test can show queued/in-flight states and run the worker itself.
   const stop = opts.worker === false ? () => undefined : createWorker(env.kit, { workerId: "daemon-worker" }).start(50);
   const url = await app.listen({ host: "127.0.0.1", port: 0 });

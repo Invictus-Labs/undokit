@@ -7,6 +7,11 @@ export interface ConnectorRecord {
   version: string;
   /** Scalar fields only; non-scalar provider members are never exposed. */
   fields: Record<string, Scalar>;
+  /**
+   * Names of top-level members that exist but hold a non-scalar value (object/array). Their values are not exposed,
+   * but their presence is, so a caller never mistakes a nested value for an absent or null one.
+   */
+  non_scalar_fields?: string[];
 }
 
 export type WriteResult =

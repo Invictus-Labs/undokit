@@ -180,7 +180,11 @@ describe("AC-13 worker restart reclaims leased jobs without discarding uncertain
     expect(job?.last_error ?? "").not.toContain(secret);
     expect(job?.last_error ?? "").toMatch(/REDACTED/);
     expect((await jobStates()).every((s) => !s.endsWith(":leased"))).toBe(true);
-    expect((await env.view(p.id)).state).toBe("approved"); // nothing was written or half-recorded
+    // Nothing was written or half-recorded, and the approval is released instead of stranded (DISPATCH_FAILED).
+    const view = await env.view(p.id);
+    expect(view.state).toBe("planned");
+    expect(view.failure?.code).toBe("DISPATCH_FAILED");
+    expect(view.attempts).toHaveLength(0);
     expect(env.sim.calls.write).toBe(0);
   });
 });
