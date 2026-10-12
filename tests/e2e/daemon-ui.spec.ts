@@ -396,7 +396,9 @@ test.describe("loading, empty and error states", () => {
     });
     await page.goto(`${d.url}/#/connectors`);
     await page.goto(`${d.url}/#/`);
-    await expect(page.getByTestId("state-loading").or(page.getByTestId("state-empty"))).toBeVisible();
+    // Scope to the operations list: the status panel shows its own state-loading note at the same time.
+    const opsLoading = page.getByTestId("state-loading").filter({ hasText: /operations/i });
+    await expect(opsLoading.or(page.getByTestId("state-empty"))).toBeVisible();
     await expect(page.getByTestId("state-empty")).toBeVisible();
   });
 
