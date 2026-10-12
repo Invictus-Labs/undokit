@@ -1,0 +1,33 @@
+{
+  "fixture_version": "1.0.0",
+  "description": "Hostile strings for escaping and validation tests. They are inert text; the tests assert they render as text and execute nothing. A page that runs any of them sets window.__undokit_pwned.",
+  "html_payloads": [
+    { "name": "script tag", "value": "<script>window.__undokit_pwned = 'script'</script>" },
+    { "name": "img onerror", "value": "<img src=x onerror=\"window.__undokit_pwned='img'\">" },
+    { "name": "svg onload", "value": "\"><svg onload=\"window.__undokit_pwned='svg'\">" },
+    { "name": "javascript url", "value": "<a href=\"javascript:window.__undokit_pwned='href'\">click</a>" },
+    { "name": "table breakout", "value": "</td></tr></table><h1 id=\"injected-heading\">INJECTED</h1>" },
+    { "name": "style injection", "value": "<style>body{display:none}</style>" },
+    { "name": "iframe srcdoc", "value": "<iframe srcdoc=\"<script>parent.__undokit_pwned='iframe'</script>\"></iframe>" },
+    { "name": "template expression", "value": "{{7*7}} ${7*7} <%= 7*7 %>" },
+    { "name": "bidi override", "value": "invoice ‮gnp.exe" },
+    { "name": "html entity soup", "value": "&lt;b&gt;bold&lt;/b&gt; &amp;amp; &#x3c;i&#x3e;" }
+  ],
+  "limits": {
+    "oversize_body_bytes": 26214401,
+    "long_string_length": 100000
+  },
+  "malformed_json_bodies": [
+    "{",
+    "{\"connector_id\": ",
+    "[]",
+    "null",
+    "{\"patch\": \"not-an-object\"}"
+  ],
+  "path_traversal_entries": [
+    "../escape.txt",
+    "..\\escape.txt",
+    "/absolute-escape.txt",
+    "nested/../../escape.txt"
+  ]
+}

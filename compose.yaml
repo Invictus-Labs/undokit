@@ -1,0 +1,36 @@
+# UndoKit local sandbox. Everything here is ephemeral test infrastructure.
+#
+#   cp .env.example .env            # fill the placeholders; never commit .env
+#   docker compose --profile sandbox up -d
+#   docker compose --profile sandbox down -v     # removes the undokit-sandbox-* container and volume
+#
+# Rules: every container and volume is named undokit-sandbox-*, every published port is bound to
+# 127.0.0.1, no credential has a default, and nothing here talks to a remote service.
+
+name: undokit-sandbox
+
+services:
+  # Real local provider for the AC-07 live drill. A record store with server-enforced optimistic
+  # concurrency (document _rev), NOT a CRM product. See docs/PROVIDER-DECISION.md.
+  couchdb:
+    profiles: ["sandbox"]
+    image: apache/couchdb:3.5.2.1@sha256:078affa27ab6b6f99da17137f6aaabe70f598f1a5b1808ab065874672208f89a
+    container_name: undokit-sandbox-couchdb
+    environment:
+      COUCHDB_USER: ${UNDOKIT_SANDBOX_COUCHDB_USER:?set UNDOKIT_SANDBOX_COUCHDB_USER in .env}
+      COUCHDB_PASSWORD: ${UNDOKIT_SANDBOX_COUCHDB_PASSWORD:?set UNDOKIT_SANDBOX_COUCHDB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${UNDOKIT_SANDBOX_COUCHDB_PORT:-15984}:5984"
+    volumes:
+      - undokit-sandbox-couchdb-data:/opt/couchdb/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5984/_up || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: "no"
+
+volumes:
+  undokit-sandbox-couchdb-data:
+    name: undokit-sandbox-couchdb-data

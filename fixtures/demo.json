@@ -1,0 +1,74 @@
+{
+  "fixture_version": "1.0.0",
+  "description": "Synthetic demo scenario. No real customer, account or credential data.",
+  "clock_utc": "2026-01-15T12:00:00.000Z",
+  "approval_ttl_seconds": 900,
+  "workspaces": [
+    { "seed": "workspace-a", "name": "Synthetic Agency A" },
+    { "seed": "workspace-b", "name": "Synthetic Agency B" }
+  ],
+  "actors": [
+    { "seed": "actor-admin-a", "workspace": "A", "role": "admin", "label": "admin-a" },
+    { "seed": "actor-operator-a", "workspace": "A", "role": "operator", "label": "operator-a" },
+    { "seed": "actor-viewer-a", "workspace": "A", "role": "viewer", "label": "viewer-a" },
+    { "seed": "actor-admin-b", "workspace": "B", "role": "admin", "label": "admin-b" },
+    { "seed": "actor-operator-b", "workspace": "B", "role": "operator", "label": "operator-b" }
+  ],
+  "connector": {
+    "seed": "connector-synthetic-crm",
+    "kind": "simulator",
+    "name": "synthetic-crm",
+    "allowlist": ["lifecycle_stage", "lead_score", "owner_label"],
+    "scope_prefix": "contact-"
+  },
+  "records": [
+    {
+      "record_ref": "contact-0001",
+      "version": "v1",
+      "fields": { "lifecycle_stage": "lead", "lead_score": 40, "owner_label": "team-red" }
+    },
+    {
+      "record_ref": "contact-0002",
+      "version": "v1",
+      "fields": { "lifecycle_stage": "lead", "lead_score": 55, "owner_label": "team-blue" }
+    },
+    {
+      "record_ref": "outside-0001",
+      "version": "v1",
+      "fields": { "lifecycle_stage": "lead", "lead_score": 10, "owner_label": "team-red" },
+      "note": "outside connector scope_prefix; must be rejected before any write"
+    }
+  ],
+  "scenarios": {
+    "wrong_field_update": {
+      "record_ref": "contact-0001",
+      "patch": { "lifecycle_stage": "customer" },
+      "expected_before": { "lifecycle_stage": "lead" },
+      "idempotency_key": "demo-key-0001"
+    },
+    "changed_intent_same_key": {
+      "record_ref": "contact-0001",
+      "patch": { "lifecycle_stage": "churned" },
+      "idempotency_key": "demo-key-0001"
+    },
+    "intervening_edit_other_field": {
+      "record_ref": "contact-0001",
+      "patch": { "lead_score": 99 },
+      "note": "lands after apply; compensation of lifecycle_stage must leave lead_score at 99 or block, never overwrite"
+    },
+    "intervening_edit_same_field": {
+      "record_ref": "contact-0001",
+      "patch": { "lifecycle_stage": "partner" },
+      "note": "lands after apply; compensation must report CONFLICT and keep this value"
+    }
+  },
+  "rejected_patches": [
+    { "name": "unknown field", "record_ref": "contact-0001", "patch": { "favorite_color": "blue" } },
+    { "name": "deletion via null", "record_ref": "contact-0001", "patch": { "lifecycle_stage": null } },
+    { "name": "send-style field", "record_ref": "contact-0001", "patch": { "send_email": "welcome" } },
+    { "name": "nested object", "record_ref": "contact-0001", "patch": { "lifecycle_stage": { "value": "customer" } } },
+    { "name": "array value", "record_ref": "contact-0001", "patch": { "lifecycle_stage": ["customer"] } },
+    { "name": "outside connector scope", "record_ref": "outside-0001", "patch": { "lifecycle_stage": "customer" } },
+    { "name": "empty patch", "record_ref": "contact-0001", "patch": {} }
+  ]
+}
