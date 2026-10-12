@@ -6,7 +6,7 @@ import { systemClock, randomIds, type Clock, type IdGenerator } from "./domain/c
 import { FaultInjector } from "./domain/faults.js";
 import { SecretRegistry } from "./domain/redact.js";
 import type { KeyRing } from "./evidence/crypto.js";
-import { LOGIN_IP_FAILURE_MULTIPLIER, LoginRateLimiter } from "./services/ratelimit.js";
+import { LOGIN_IP_FAILURE_MULTIPLIER, LoginRateLimiter, VerifyGate } from "./services/ratelimit.js";
 
 export interface UndoKitOptions {
   /** `memory://`, `pglite://<dir>` or `postgres://...`. Ignored when `db` is given. */
@@ -43,6 +43,8 @@ export interface UndoKit {
   loginLimiter: LoginRateLimiter;
   /** Failed logins per client address across all emails, so cycling emails cannot keep scrypt busy unthrottled. */
   loginIpLimiter: LoginRateLimiter;
+  /** Caps concurrent login password verifications (scrypt) so bursts cannot saturate the libuv thread pool. */
+  loginVerifyGate: VerifyGate;
   migrationsDir: string | undefined;
   /** Mutable: set once at startup from the migration result and refreshed by `refreshReadiness`. */
   readiness: Readiness;
@@ -73,6 +75,7 @@ export async function createUndoKit(options: UndoKitOptions): Promise<UndoKit> {
     config,
     loginLimiter: new LoginRateLimiter(clock, config.loginMaxFailures, config.loginWindowMs),
     loginIpLimiter: new LoginRateLimiter(clock, config.loginMaxFailures * LOGIN_IP_FAILURE_MULTIPLIER, config.loginWindowMs),
+    loginVerifyGate: new VerifyGate(),
     migrationsDir: options.migrationsDir,
     readiness: toReadiness(status),
     fetch: options.fetch,

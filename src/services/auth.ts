@@ -9,6 +9,7 @@ import {
   type SessionListItem,
   type SessionView,
 } from "../domain/types.js";
+import { GateFullError } from "./ratelimit.js";
 import { addMs, assertReady, assertUuid, isUniqueViolation, parseBody, requireRole, type Actor } from "./common.js";
 
 /* ---------- password hashing (scrypt) ---------- */
@@ -218,40 +219,63 @@ export interface LoginResult {
   session_id: string;
 }
 
+function rateLimited(): AppError {
+  return new AppError("RATE_LIMITED", "too many failed sign-in attempts; try again later");
+}
+
+/** Look up and verify the credentials; throws INVALID_CREDENTIALS (a counted failure) or RATE_LIMITED (not counted). */
+async function checkCredentials(kit: UndoKit, email: string, password: string, workspaceId: string | undefined) {
+  const found = await kit.db.query<{ id: string; email: string; display_name: string | null; password_hash: string }>(
+    "SELECT id, email, display_name, password_hash FROM users WHERE email = $1",
+    [email],
+  );
+  const user = found.rows[0];
+  const stored = user?.password_hash ?? (await getDummyHash());
+  let ok: boolean;
+  try {
+    ok = await kit.loginVerifyGate.run(() => verifyPassword(password, stored));
+  } catch (err) {
+    if (err instanceof GateFullError) throw rateLimited();
+    throw err;
+  }
+  if (!user || !ok) throw new AppError("INVALID_CREDENTIALS", "email or password is incorrect");
+  const memberships = await kit.db.query<{ workspace_id: string; role: Role; name: string }>(
+    `SELECT m.workspace_id, m.role, w.name FROM memberships m JOIN workspaces w ON w.id = m.workspace_id
+      WHERE m.user_id = $1::uuid AND ($2::uuid IS NULL OR m.workspace_id = $2::uuid) ORDER BY m.created_at, m.workspace_id`,
+    [user.id, workspaceId ?? null],
+  );
+  const membership = memberships.rows[0];
+  if (!membership) throw new AppError("INVALID_CREDENTIALS", "email or password is incorrect");
+  return { user, membership };
+}
+
 export async function login(kit: UndoKit, body: unknown, meta: LoginMeta = {}): Promise<LoginResult> {
   assertReady(kit);
   const req = parseBody(loginRequestSchema, body);
   const email = req.email.trim().toLowerCase();
   const limiterKey = `${meta.ip ?? "-"}|${email}`;
   const ipKey = meta.ip === undefined ? undefined : `ip|${meta.ip}`;
-  if (kit.loginLimiter.blocked(limiterKey) || (ipKey !== undefined && kit.loginIpLimiter.blocked(ipKey))) {
-    throw new AppError("RATE_LIMITED", "too many failed sign-in attempts; try again later");
+  // Reserve the attempt on both budgets synchronously, before any await: concurrent requests are counted while still in
+  // flight, so a burst cannot all pass the check before the first failure is recorded.
+  if (!kit.loginLimiter.tryReserve(limiterKey)) throw rateLimited();
+  if (ipKey !== undefined && !kit.loginIpLimiter.tryReserve(ipKey)) {
+    kit.loginLimiter.settle(limiterKey, false);
+    throw rateLimited();
   }
-  const recordFailure = () => {
-    kit.loginLimiter.recordFailure(limiterKey);
-    if (ipKey !== undefined) kit.loginIpLimiter.recordFailure(ipKey); // never cleared by a success: one valid account must not reset it
-  };
-  const found = await kit.db.query<{ id: string; email: string; display_name: string | null; password_hash: string }>(
-    "SELECT id, email, display_name, password_hash FROM users WHERE email = $1",
-    [email],
-  );
-  const user = found.rows[0];
-  const ok = await verifyPassword(req.password, user?.password_hash ?? (await getDummyHash()));
-  if (!user || !ok) {
-    recordFailure();
-    throw new AppError("INVALID_CREDENTIALS", "email or password is incorrect");
+  let failed = false;
+  let verified: Awaited<ReturnType<typeof checkCredentials>>;
+  try {
+    verified = await checkCredentials(kit, email, req.password, req.workspace_id);
+  } catch (err) {
+    failed = err instanceof AppError && err.code === "INVALID_CREDENTIALS";
+    throw err;
+  } finally {
+    kit.loginLimiter.settle(limiterKey, failed);
+    // The per-address bucket is never cleared by a success: one valid account must not reset it.
+    if (ipKey !== undefined) kit.loginIpLimiter.settle(ipKey, failed);
   }
-  const memberships = await kit.db.query<{ workspace_id: string; role: Role; name: string }>(
-    `SELECT m.workspace_id, m.role, w.name FROM memberships m JOIN workspaces w ON w.id = m.workspace_id
-      WHERE m.user_id = $1::uuid AND ($2::uuid IS NULL OR m.workspace_id = $2::uuid) ORDER BY m.created_at, m.workspace_id`,
-    [user.id, req.workspace_id ?? null],
-  );
-  const membership = memberships.rows[0];
-  if (!membership) {
-    recordFailure();
-    throw new AppError("INVALID_CREDENTIALS", "email or password is incorrect");
-  }
-  kit.loginLimiter.clear(limiterKey);
+  const { user, membership } = verified;
+  kit.loginLimiter.clear(limiterKey); // forgets completed failures; other attempts still in flight keep counting
   const token = randomBytes(32).toString("base64url");
   const csrf = randomBytes(24).toString("base64url");
   const now = kit.clock.now();
